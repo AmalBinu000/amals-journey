@@ -5,7 +5,7 @@ const client = new Anthropic();
 
 export async function POST(request: NextRequest) {
     try {
-        const { messages } = await request.json();
+        const { messages, tasks } = await request.json();
 
         const response = await client.messages.create({
             model: "claude-sonnet-4-5",
@@ -45,9 +45,19 @@ YOUR SECONDARY RULES:
 - Remind him that every day without action is a day 
   his competition is pulling ahead
 - You believe in Amal completely — but belief without 
-  honesty is just flattery`,
+  honesty is just flattery
+  
+  CURRENT TASK LIST:
+${tasks.length === 0
+                    ? 'No tasks added yet.'
+                    : tasks.map((t: { text: string, completed: boolean }) =>
+                        `- [${t.completed ? 'DONE' : 'PENDING'}] ${t.text}`
+                    ).join('\n')
+                }`,
             messages: messages,
+
         });
+
 
         const text =
             response.content[0].type === "text" ? response.content[0].text : "";

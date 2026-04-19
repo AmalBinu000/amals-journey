@@ -30,7 +30,7 @@ export default function Home() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages })
+        body: JSON.stringify({ messages: newMessages, tasks: tasks })
       })
       const data = await res.json()
       setMessages(prev => [...prev, {
@@ -128,8 +128,8 @@ export default function Home() {
                 <button
                   onClick={() => toggleTask(task.id)}
                   className={`w-4 h-4 rounded-full border flex-shrink-0 mt-0.5 transition-colors ${task.completed
-                      ? 'bg-blue-500 border-blue-500'
-                      : 'border-zinc-600 hover:border-blue-500'
+                    ? 'bg-blue-500 border-blue-500'
+                    : 'border-zinc-600 hover:border-blue-500'
                     }`}
                 />
                 <span className={`text-xs flex-1 leading-relaxed ${task.completed ? 'line-through text-zinc-600' : 'text-zinc-300'
@@ -161,8 +161,8 @@ export default function Home() {
                   {m.role === 'user' ? 'Amal' : 'Jarvis'}
                 </span>
                 <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${m.role === 'user'
-                    ? 'bg-blue-600 text-white rounded-tr-sm'
-                    : 'bg-zinc-800 text-zinc-100 rounded-tl-sm'
+                  ? 'bg-blue-600 text-white rounded-tr-sm'
+                  : 'bg-zinc-800 text-zinc-100 rounded-tl-sm'
                   }`}>
                   <ReactMarkdown>{m.content}</ReactMarkdown>
                 </div>
