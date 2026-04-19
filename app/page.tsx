@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
+import { supabase } from '@/lib/supabase'
 
 type Message = { role: 'user' | 'assistant', content: string }
 type Task = { id: number, text: string, completed: boolean }
@@ -14,8 +15,48 @@ export default function Home() {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    fetchTasks()
+  }, [])
+
+  useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  async function fetchTasks() {
+    const { data } = await supabase
+      .from('tasks')
+      .select('*')
+      .order('created_at', { ascending: true })
+    if (data) setTasks(data)
+  }
+
+  async function addTask() {
+    if (!newTask.trim()) return
+    const { data } = await supabase
+      .from('tasks')
+      .insert([{ text: newTask, completed: false }])
+      .select()
+    if (data) setTasks(prev => [...prev, data[0]])
+    setNewTask('')
+  }
+
+  async function toggleTask(id: number, completed: boolean) {
+    await supabase
+      .from('tasks')
+      .update({ completed: !completed })
+      .eq('id', id)
+    setTasks(prev => prev.map(t =>
+      t.id === id ? { ...t, completed: !completed } : t
+    ))
+  }
+
+  async function deleteTask(id: number) {
+    await supabase
+      .from('tasks')
+      .delete()
+      .eq('id', id)
+    setTasks(prev => prev.filter(t => t.id !== id))
+  }
 
   async function sendMessage() {
     if (!input.trim() || loading) return
@@ -30,7 +71,7 @@ export default function Home() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages, tasks: tasks })
+        body: JSON.stringify({ messages: newMessages, tasks })
       })
       const data = await res.json()
       setMessages(prev => [...prev, {
@@ -47,31 +88,10 @@ export default function Home() {
     }
   }
 
-  function addTask() {
-    if (!newTask.trim()) return
-    setTasks(prev => [...prev, {
-      id: Date.now(),
-      text: newTask,
-      completed: false
-    }])
-    setNewTask('')
-  }
-
-  function toggleTask(id: number) {
-    setTasks(prev => prev.map(t =>
-      t.id === id ? { ...t, completed: !t.completed } : t
-    ))
-  }
-
-  function deleteTask(id: number) {
-    setTasks(prev => prev.filter(t => t.id !== id))
-  }
-
   const completedCount = tasks.filter(t => t.completed).length
 
   return (
     <main className="min-h-screen bg-zinc-950 text-white flex flex-col">
-
       <div className="border-b border-zinc-800 px-6 py-4 flex items-center gap-3">
         <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
         <h1 className="text-lg font-semibold tracking-wide">Amal's Journey</h1>
@@ -79,7 +99,6 @@ export default function Home() {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-
         <div className="w-80 border-r border-zinc-800 flex flex-col p-4 gap-4">
           <div>
             <p className="text-xs text-zinc-500 uppercase tracking-wider mb-3">
@@ -92,7 +111,7 @@ export default function Home() {
               <div className="w-full bg-zinc-800 rounded-full h-1 mt-2">
                 <div
                   className="bg-blue-500 h-1 rounded-full transition-all"
-                  style={{ width: `${tasks.length ? (completedCount / tasks.length) * 100 : 0}%` }}
+                  style={{ width: `${(completedCount/tasks.length)*100}%` }}
                 />
               </div>
             )}
@@ -126,14 +145,16 @@ export default function Home() {
                 className="flex items-start gap-3 p-3 bg-zinc-900 rounded-lg border border-zinc-800 group"
               >
                 <button
-                  onClick={() => toggleTask(task.id)}
-                  className={`w-4 h-4 rounded-full border flex-shrink-0 mt-0.5 transition-colors ${task.completed
-                    ? 'bg-blue-500 border-blue-500'
-                    : 'border-zinc-600 hover:border-blue-500'
-                    }`}
+                  onClick={() => toggleTask(task.id, task.completed)}
+                  className={`w-4 h-4 rounded-full border flex-shrink-0 mt-0.5 transition-colors ${
+                    task.completed
+                      ? 'bg-blue-500 border-blue-500'
+                      : 'border-zinc-600 hover:border-blue-500'
+                  }`}
                 />
-                <span className={`text-xs flex-1 leading-relaxed ${task.completed ? 'line-through text-zinc-600' : 'text-zinc-300'
-                  }`}>
+                <span className={`text-xs flex-1 leading-relaxed ${
+                  task.completed ? 'line-through text-zinc-600' : 'text-zinc-300'
+                }`}>
                   {task.text}
                 </span>
                 <button
@@ -155,15 +176,17 @@ export default function Home() {
               </div>
             )}
             {messages.map((m, i) => (
-              <div key={i} className={`flex flex-col gap-1 max-w-2xl ${m.role === 'user' ? 'self-end items-end' : 'self-start items-start'
-                }`}>
+              <div key={i} className={`flex flex-col gap-1 max-w-2xl ${
+                m.role === 'user' ? 'self-end items-end' : 'self-start items-start'
+              }`}>
                 <span className="text-xs text-zinc-600 px-1">
                   {m.role === 'user' ? 'Amal' : 'Jarvis'}
                 </span>
-                <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${m.role === 'user'
-                  ? 'bg-blue-600 text-white rounded-tr-sm'
-                  : 'bg-zinc-800 text-zinc-100 rounded-tl-sm'
-                  }`}>
+                <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                  m.role === 'user'
+                    ? 'bg-blue-600 text-white rounded-tr-sm'
+                    : 'bg-zinc-800 text-zinc-100 rounded-tl-sm'
+                }`}>
                   <ReactMarkdown>{m.content}</ReactMarkdown>
                 </div>
               </div>
@@ -173,9 +196,9 @@ export default function Home() {
                 <span className="text-xs text-zinc-600 px-1">Jarvis</span>
                 <div className="bg-zinc-800 px-4 py-3 rounded-2xl rounded-tl-sm">
                   <div className="flex gap-1 items-center h-4">
-                    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{animationDelay:'0ms'}}/>
+                    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{animationDelay:'150ms'}}/>
+                    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{animationDelay:'300ms'}}/>
                   </div>
                 </div>
               </div>
