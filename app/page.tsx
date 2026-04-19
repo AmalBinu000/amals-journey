@@ -1,9 +1,11 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 
+type Message = { role: 'user' | 'assistant', content: string }
+
 export default function Home() {
-  const [message, setMessage] = useState('')
-  const [messages, setMessages] = useState<{ role: string, text: string }[]>([])
+  const [input, setInput] = useState('')
+  const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -12,21 +14,33 @@ export default function Home() {
   }, [messages])
 
   async function sendMessage() {
-    if (!message.trim() || loading) return
-    const userMessage = message
-    setMessages(prev => [...prev, { role: 'user', text: userMessage }])
-    setMessage('')
+    if (!input.trim() || loading) return
+
+    const newMessages: Message[] = [
+      ...messages,
+      { role: 'user', content: input }
+    ]
+
+    setMessages(newMessages)
+    setInput('')
     setLoading(true)
+
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMessage })
+        body: JSON.stringify({ messages: newMessages })
       })
       const data = await res.json()
-      setMessages(prev => [...prev, { role: 'jarvis', text: data.response }])
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: data.response
+      }])
     } catch {
-      setMessages(prev => [...prev, { role: 'jarvis', text: 'Connection lost. Stand by.' }])
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: 'Connection lost. Stand by.'
+      }])
     } finally {
       setLoading(false)
     }
@@ -48,7 +62,8 @@ export default function Home() {
           </div>
         )}
         {messages.map((m, i) => (
-          <div key={i} className={`flex flex-col gap-1 max-w-2xl ${m.role === 'user' ? 'self-end items-end' : 'self-start items-start'}`}>
+          <div key={i} className={`flex flex-col gap-1 max-w-2xl ${m.role === 'user' ? 'self-end items-end' : 'self-start items-start'
+            }`}>
             <span className="text-xs text-zinc-600 px-1">
               {m.role === 'user' ? 'Amal' : 'Jarvis'}
             </span>
@@ -56,7 +71,7 @@ export default function Home() {
                 ? 'bg-blue-600 text-white rounded-tr-sm'
                 : 'bg-zinc-800 text-zinc-100 rounded-tl-sm'
               }`}>
-              {m.text}
+              {m.content}
             </div>
           </div>
         ))}
@@ -79,8 +94,8 @@ export default function Home() {
         <input
           className="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors placeholder-zinc-600"
           placeholder="Message Jarvis..."
-          value={message}
-          onChange={e => setMessage(e.target.value)}
+          value={input}
+          onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
         />
         <button

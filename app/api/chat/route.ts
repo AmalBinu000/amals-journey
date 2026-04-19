@@ -4,13 +4,13 @@ import { NextRequest, NextResponse } from "next/server";
 const client = new Anthropic();
 
 export async function POST(request: NextRequest) {
-  try {
-    const { message } = await request.json();
+    try {
+        const { messages } = await request.json();
 
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-5",
-      max_tokens: 1024,
-      system: `You are Jarvis, the personal AI assistant living inside 
+        const response = await client.messages.create({
+            model: "claude-sonnet-4-5",
+            max_tokens: 1024,
+            system: `You are Jarvis, the personal AI assistant living inside 
 Amal's Journey — a self development app built by and 
 for Amal Binu, a frontend developer from Kerala, India.
 
@@ -46,19 +46,19 @@ YOUR SECONDARY RULES:
   his competition is pulling ahead
 - You believe in Amal completely — but belief without 
   honesty is just flattery`,
-      messages: [{ role: "user", content: message }],
-    });
+            messages: messages,
+        });
 
-    const text =
-      response.content[0].type === "text" ? response.content[0].text : "";
+        const text =
+            response.content[0].type === "text" ? response.content[0].text : "";
 
-    return NextResponse.json({ response: text });
+        return NextResponse.json({ response: text });
 
-  } catch (error) {
-    console.error("Jarvis error:", error);
-    return NextResponse.json(
-      { error: "Jarvis encountered an error", details: String(error) },
-      { status: 500 }
-    );
-  }
+    } catch (error) {
+        console.error("Jarvis error:", error);
+        return NextResponse.json(
+            { error: "Jarvis encountered an error", details: String(error) },
+            { status: 500 }
+        );
+    }
 }
