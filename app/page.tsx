@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import ReactMarkdown from 'react-markdown'
 
 type Message = { role: 'user' | 'assistant', content: string }
 
@@ -68,10 +69,10 @@ export default function Home() {
               {m.role === 'user' ? 'Amal' : 'Jarvis'}
             </span>
             <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${m.role === 'user'
-                ? 'bg-blue-600 text-white rounded-tr-sm'
-                : 'bg-zinc-800 text-zinc-100 rounded-tl-sm'
+              ? 'bg-blue-600 text-white rounded-tr-sm'
+              : 'bg-zinc-800 text-zinc-100 rounded-tl-sm'
               }`}>
-              {m.content}
+              <ReactMarkdown>{m.content}</ReactMarkdown>
             </div>
           </div>
         ))}
