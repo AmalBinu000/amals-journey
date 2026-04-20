@@ -16,6 +16,7 @@ export default function Home() {
 
   useEffect(() => {
     fetchTasks()
+    fetchMessages()
   }, [])
 
   useEffect(() => {
@@ -28,6 +29,17 @@ export default function Home() {
       .select('*')
       .order('created_at', { ascending: true })
     if (data) setTasks(data)
+  }
+
+  async function fetchMessages() {
+    const { data } = await supabase
+      .from('messages')
+      .select('*')
+      .order('created_at', { ascending: true })
+    if (data) setMessages(data.map(m => ({
+      role: m.role as 'user' | 'assistant',
+      content: m.content
+    })))
   }
 
   async function addTask() {
@@ -67,6 +79,9 @@ export default function Home() {
     setMessages(newMessages)
     setInput('')
     setLoading(true)
+    await supabase.from('messages').insert([{
+      role: 'user', content: input
+    }])
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
@@ -78,11 +93,15 @@ export default function Home() {
         role: 'assistant',
         content: data.response
       }])
+      await supabase.from('messages').insert([{
+        role: 'assistant', content: data.response
+      }])
     } catch {
       setMessages(prev => [...prev, {
         role: 'assistant',
         content: 'Connection lost. Stand by.'
       }])
+
     } finally {
       setLoading(false)
     }
@@ -111,7 +130,7 @@ export default function Home() {
               <div className="w-full bg-zinc-800 rounded-full h-1 mt-2">
                 <div
                   className="bg-blue-500 h-1 rounded-full transition-all"
-                  style={{ width: `${(completedCount/tasks.length)*100}%` }}
+                  style={{ width: `${(completedCount / tasks.length) * 100}%` }}
                 />
               </div>
             )}
@@ -146,15 +165,13 @@ export default function Home() {
               >
                 <button
                   onClick={() => toggleTask(task.id, task.completed)}
-                  className={`w-4 h-4 rounded-full border flex-shrink-0 mt-0.5 transition-colors ${
-                    task.completed
+                  className={`w-4 h-4 rounded-full border flex-shrink-0 mt-0.5 transition-colors ${task.completed
                       ? 'bg-blue-500 border-blue-500'
                       : 'border-zinc-600 hover:border-blue-500'
-                  }`}
+                    }`}
                 />
-                <span className={`text-xs flex-1 leading-relaxed ${
-                  task.completed ? 'line-through text-zinc-600' : 'text-zinc-300'
-                }`}>
+                <span className={`text-xs flex-1 leading-relaxed ${task.completed ? 'line-through text-zinc-600' : 'text-zinc-300'
+                  }`}>
                   {task.text}
                 </span>
                 <button
@@ -176,17 +193,15 @@ export default function Home() {
               </div>
             )}
             {messages.map((m, i) => (
-              <div key={i} className={`flex flex-col gap-1 max-w-2xl ${
-                m.role === 'user' ? 'self-end items-end' : 'self-start items-start'
-              }`}>
+              <div key={i} className={`flex flex-col gap-1 max-w-2xl ${m.role === 'user' ? 'self-end items-end' : 'self-start items-start'
+                }`}>
                 <span className="text-xs text-zinc-600 px-1">
                   {m.role === 'user' ? 'Amal' : 'Jarvis'}
                 </span>
-                <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${
-                  m.role === 'user'
+                <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${m.role === 'user'
                     ? 'bg-blue-600 text-white rounded-tr-sm'
                     : 'bg-zinc-800 text-zinc-100 rounded-tl-sm'
-                }`}>
+                  }`}>
                   <ReactMarkdown>{m.content}</ReactMarkdown>
                 </div>
               </div>
@@ -196,9 +211,9 @@ export default function Home() {
                 <span className="text-xs text-zinc-600 px-1">Jarvis</span>
                 <div className="bg-zinc-800 px-4 py-3 rounded-2xl rounded-tl-sm">
                   <div className="flex gap-1 items-center h-4">
-                    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{animationDelay:'0ms'}}/>
-                    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{animationDelay:'150ms'}}/>
-                    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{animationDelay:'300ms'}}/>
+                    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                   </div>
                 </div>
               </div>
