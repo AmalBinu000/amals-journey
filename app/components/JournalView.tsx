@@ -7,6 +7,7 @@ type Entry = {
     type: string
     title: string
     content: string
+    image_url?: string | null
     created_at: string
 }
 
@@ -17,6 +18,8 @@ export default function JournalView() {
     const [title, setTitle] = useState('')
     const [content, setContent] = useState('')
     const [saving, setSaving] = useState(false)
+    const [image, setImage] = useState<File | null>(null)
+    const [imagePreview, setImagePreview] = useState<string>('')
 
     useEffect(() => { fetchEntries() }, [])
 
@@ -31,9 +34,33 @@ export default function JournalView() {
     async function saveEntry() {
         if (!title.trim() || !content.trim()) return
         setSaving(true)
-        await supabase.from('journal').insert([{ type: tab, title, content }])
+
+        let image_url = ''
+
+        if (image) {
+            const fileName = `${Date.now()}-${image.name}`
+            const { data } = await supabase.storage
+                .from('journal-images')
+                .upload(fileName, image)
+            if (data) {
+                const { data: urlData } = supabase.storage
+                    .from('journal-images')
+                    .getPublicUrl(fileName)
+                image_url = urlData.publicUrl
+            }
+        }
+
+        await supabase.from('journal').insert([{
+            type: tab,
+            title,
+            content,
+            image_url: image_url || null
+        }])
+
         setTitle('')
         setContent('')
+        setImage(null)
+        setImagePreview('')
         await fetchEntries()
         setSaving(false)
         setMode('read')
@@ -75,6 +102,44 @@ export default function JournalView() {
                         value={content}
                         onChange={e => setContent(e.target.value)}
                     />
+                    <div className="border border-zinc-700 border-dashed rounded-xl p-4 text-center">
+                        {imagePreview ? (
+                            <div className="relative">
+                                <img
+                                    src={imagePreview}
+                                    alt="preview"
+                                    className="w-full h-48 object-cover rounded-lg mb-2"
+                                />
+                                <button
+                                    onClick={() => { setImage(null); setImagePreview('') }}
+                                    className="text-xs text-zinc-500 hover:text-red-400 transition-colors"
+                                >
+                                    Remove image
+                                </button>
+                            </div>
+                        ) : (
+                            <label className="cursor-pointer">
+                                <p className="text-zinc-600 text-sm mb-2">
+                                    Click to add an image
+                                </p>
+                                <p className="text-zinc-700 text-xs">
+                                    PNG, JPG up to 50MB
+                                </p>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={e => {
+                                        const file = e.target.files?.[0]
+                                        if (file) {
+                                            setImage(file)
+                                            setImagePreview(URL.createObjectURL(file))
+                                        }
+                                    }}
+                                />
+                            </label>
+                        )}
+                    </div>
                     <div className="flex gap-3 pt-2 border-t border-zinc-800">
                         <button
                             onClick={saveEntry}
@@ -159,8 +224,18 @@ export default function JournalView() {
                                 })}
                             </span>
                         </div>
-                        <div className="w-48 h-32 bg-zinc-900 rounded-xl border border-zinc-800 flex-shrink-0 flex items-center justify-center">
-                            <span className="text-zinc-700 text-xs">No image yet</span>
+                        <div className="w-48 h-32 bg-zinc-900 rounded-xl border border-zinc-800 flex-shrink-0 overflow-hidden">
+                            {hero.image_url ? (
+                                <img
+                                    src={hero.image_url}
+                                    alt={hero.title}
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                    <span className="text-zinc-700 text-xs">No image yet</span>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -173,8 +248,18 @@ export default function JournalView() {
                             key={entry.id}
                             className="group cursor-pointer"
                         >
-                            <div className="w-full h-36 bg-zinc-900 rounded-xl border border-zinc-800 mb-4 flex items-center justify-center group-hover:border-zinc-700 transition-colors">
-                                <span className="text-zinc-700 text-xs">No image yet</span>
+                            <div className="w-full h-36 bg-zinc-900 rounded-xl border border-zinc-800 mb-4 overflow-hidden group-hover:border-zinc-700 transition-colors">
+                                {entry.image_url ? (
+                                    <img
+                                        src={entry.image_url}
+                                        alt={entry.title}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                        <span className="text-zinc-700 text-xs">No image yet</span>
+                                    </div>
+                                )}
                             </div>
                             <span className="text-xs text-zinc-700 mb-2 block">
                                 {new Date(entry.created_at).toLocaleDateString('en-IN', {
