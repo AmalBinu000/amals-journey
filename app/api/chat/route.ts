@@ -5,7 +5,7 @@ const client = new Anthropic();
 
 export async function POST(request: NextRequest) {
     try {
-        const { messages, tasks } = await request.json();
+        const { messages, tasks, journal } = await request.json();
 
         const response = await client.messages.create({
             model: "claude-sonnet-4-5",
@@ -53,6 +53,14 @@ ${tasks.length === 0
                     : tasks.map((t: { text: string, completed: boolean }) =>
                         `- [${t.completed ? 'DONE' : 'PENDING'}] ${t.text}`
                     ).join('\n')
+                }
+
+RECENT JOURNAL ENTRIES:
+${journal && journal.length > 0
+                    ? journal.map((e: { type: string, title: string, content: string }) =>
+                        `- [${e.type.toUpperCase()}] ${e.title}: ${e.content.slice(0, 150)}...`
+                    ).join('\n')
+                    : 'No journal entries yet.'
                 }`,
             messages: messages,
 

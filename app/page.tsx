@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { supabase } from '@/lib/supabase'
 import JournalView from '@/app/components/JournalView'
+import FinanceView from './components/FinanceView'
 
 type Message = { role: 'user' | 'assistant', content: string }
 type Task = { id: number, text: string, completed: boolean }
@@ -12,13 +13,15 @@ export default function Home() {
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(false)
   const [tasks, setTasks] = useState<Task[]>([])
+  const [journal, setJournal] = useState<{ title: string, content: string, type: string }[]>([])
   const [newTask, setNewTask] = useState('')
-  const [view, setView] = useState<'dashboard' | 'journal'>('dashboard')
+  const [view, setView] = useState<'dashboard' | 'journal' | 'finance'>('dashboard')
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetchTasks()
     fetchMessages()
+    fetchJournal()
   }, [])
 
   useEffect(() => {
@@ -31,6 +34,15 @@ export default function Home() {
       .select('*')
       .order('created_at', { ascending: true })
     if (data) setTasks(data)
+  }
+
+  async function fetchJournal() {
+    const { data } = await supabase
+      .from('journal')
+      .select('title, content, type')
+      .order('created_at', { ascending: false })
+      .limit(5)
+    if (data) setJournal(data)
   }
 
   async function fetchMessages() {
@@ -88,7 +100,7 @@ export default function Home() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages, tasks })
+        body: JSON.stringify({ messages: newMessages, tasks, journal })
       })
       const data = await res.json()
       setMessages(prev => [...prev, {
@@ -134,6 +146,15 @@ export default function Home() {
               }`}
           >
             Journal
+          </button>
+          <button
+            onClick={() => setView('finance')}
+            className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-colors ${view === 'finance'
+              ? 'bg-blue-600 text-white'
+              : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+          >
+            Finance
           </button>
         </div>
       </div>
@@ -266,6 +287,11 @@ export default function Home() {
       {view === 'journal' && (
         <div className="flex-1 p-6 overflow-y-auto">
           <JournalView />
+        </div>
+      )}
+      {view === 'finance' && (
+        <div className="flex-1 p-6 overflow-y-auto">
+          <FinanceView />
         </div>
       )}
     </main>
