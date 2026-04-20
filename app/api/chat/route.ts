@@ -5,7 +5,7 @@ const client = new Anthropic();
 
 export async function POST(request: NextRequest) {
     try {
-        const { messages, tasks, journal } = await request.json();
+        const { messages, tasks, journal, finances } = await request.json();
 
         const response = await client.messages.create({
             model: "claude-sonnet-4-5",
@@ -61,6 +61,25 @@ ${journal && journal.length > 0
                         `- [${e.type.toUpperCase()}] ${e.title}: ${e.content.slice(0, 150)}...`
                     ).join('\n')
                     : 'No journal entries yet.'
+                }
+
+RECENT FINANCES:
+${finances && finances.length > 0
+                    ? (() => {
+                        const income = finances
+                            .filter((f: { type: string }) => f.type === 'income')
+                            .reduce((sum: number, f: { amount: number }) => sum + f.amount, 0)
+                        const expenses = finances
+                            .filter((f: { type: string }) => f.type === 'expense')
+                            .reduce((sum: number, f: { amount: number }) => sum + f.amount, 0)
+                        const topExpenses = finances
+                            .filter((f: { type: string }) => f.type === 'expense')
+                            .map((f: { category: string, amount: number, description: string }) =>
+                                `${f.category}: ₹${f.amount} (${f.description || 'no description'})`)
+                            .join(', ')
+                        return `Total income: ₹${income} | Total expenses: ₹${expenses} | Balance: ₹${income - expenses}\nRecent expenses: ${topExpenses}`
+                    })()
+                    : 'No financial data yet.'
                 }`,
             messages: messages,
 

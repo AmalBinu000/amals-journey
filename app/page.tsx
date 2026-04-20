@@ -14,6 +14,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const [tasks, setTasks] = useState<Task[]>([])
   const [journal, setJournal] = useState<{ title: string, content: string, type: string }[]>([])
+  const [finances, setFinances] = useState<{type: string, amount: number, category: string, description: string}[]>([])
   const [newTask, setNewTask] = useState('')
   const [view, setView] = useState<'dashboard' | 'journal' | 'finance'>('dashboard')
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -22,6 +23,7 @@ export default function Home() {
     fetchTasks()
     fetchMessages()
     fetchJournal()
+    fetchFinances()
   }, [])
 
   useEffect(() => {
@@ -43,6 +45,15 @@ export default function Home() {
       .order('created_at', { ascending: false })
       .limit(5)
     if (data) setJournal(data)
+  }
+
+  async function fetchFinances() {
+    const { data } = await supabase
+      .from('finances')
+      .select('type, amount, category, description')
+      .order('created_at', { ascending: false })
+      .limit(10)
+    if (data) setFinances(data)
   }
 
   async function fetchMessages() {
@@ -100,7 +111,7 @@ export default function Home() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages, tasks, journal })
+        body: JSON.stringify({ messages: newMessages, tasks, journal, finances })
       })
       const data = await res.json()
       setMessages(prev => [...prev, {
