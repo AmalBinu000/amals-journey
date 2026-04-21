@@ -5,7 +5,8 @@ const client = new Anthropic();
 
 export async function POST(request: NextRequest) {
     try {
-        const { messages, tasks, journal, finances } = await request.json();
+        const { messages, tasks, journal, finances, savingsData, lentData } = await request.json();
+        console.log('FINANCES SENT TO JARVIS:', JSON.stringify(finances, null, 2))
 
         const response = await client.messages.create({
             model: "claude-sonnet-4-5",
@@ -66,20 +67,25 @@ ${journal && journal.length > 0
 RECENT FINANCES:
 ${finances && finances.length > 0
                     ? (() => {
-                        const income = finances
-                            .filter((f: { type: string }) => f.type === 'income')
-                            .reduce((sum: number, f: { amount: number }) => sum + f.amount, 0)
-                        const expenses = finances
-                            .filter((f: { type: string }) => f.type === 'expense')
-                            .reduce((sum: number, f: { amount: number }) => sum + f.amount, 0)
-                        const topExpenses = finances
-                            .filter((f: { type: string }) => f.type === 'expense')
-                            .map((f: { category: string, amount: number, description: string }) =>
-                                `${f.category}: ₹${f.amount} (${f.description || 'no description'})`)
-                            .join(', ')
-                        return `Total income: ₹${income} | Total expenses: ₹${expenses} | Balance: ₹${income - expenses}\nRecent expenses: ${topExpenses}`
+                        const income = finances.filter((f: { type: string }) => f.type === 'income').reduce((sum: number, f: { amount: number }) => sum + f.amount, 0)
+                        const expenses = finances.filter((f: { type: string }) => f.type === 'expense').reduce((sum: number, f: { amount: number }) => sum + f.amount, 0)
+                        const topExpenses = finances.filter((f: { type: string }) => f.type === 'expense').map((f: { category: string, amount: number, description: string }) => `${f.category}: ₹${f.amount} (${f.description || 'no description'})`).join(', ')
+                        return `Income: ₹${income} | Expenses: ₹${expenses} | Balance: ₹${income - expenses}\nExpenses: ${topExpenses}`
                     })()
                     : 'No financial data yet.'
+                }
+
+SAVINGS & INVESTMENTS:
+${savingsData && savingsData.length > 0
+                    ? `Total investments: ${savingsData.length}\n` + savingsData.map((s: { name: string, type: string, amount: number }) => `- ${s.name} (${s.type}): ₹${s.amount}`).join('\n')
+                    : 'No investments yet.'
+                }
+
+LENT MONEY (outstanding):
+${lentData && lentData.length > 0
+                    ? lentData.map((l: { person_name: string, amount: number, return_date: string | null }) =>
+                        `- ${l.person_name}: ₹${l.amount}${l.return_date ? ` (return by ${l.return_date})` : ''}`).join('\n')
+                    : 'No outstanding lent money.'
                 }`,
             messages: messages,
 

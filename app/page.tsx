@@ -14,7 +14,9 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const [tasks, setTasks] = useState<Task[]>([])
   const [journal, setJournal] = useState<{ title: string, content: string, type: string }[]>([])
-  const [finances, setFinances] = useState<{type: string, amount: number, category: string, description: string}[]>([])
+  const [finances, setFinances] = useState<{ type: string, amount: number, category: string, description: string, date: string }[]>([])
+  const [savingsData, setSavingsData] = useState<{ name: string, type: string, amount: number }[]>([])
+  const [lentData, setLentData] = useState<{ person_name: string, amount: number, returned: boolean, return_date: string | null }[]>([])
   const [newTask, setNewTask] = useState('')
   const [view, setView] = useState<'dashboard' | 'journal' | 'finance'>('dashboard')
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -24,6 +26,8 @@ export default function Home() {
     fetchMessages()
     fetchJournal()
     fetchFinances()
+    fetchSavingsData()
+    fetchLentData()
   }, [])
 
   useEffect(() => {
@@ -50,10 +54,27 @@ export default function Home() {
   async function fetchFinances() {
     const { data } = await supabase
       .from('finances')
-      .select('type, amount, category, description')
+      .select('type, amount, category, description, date')
+      .order('date', { ascending: false })
+    if (data) setFinances(data)
+  }
+
+  async function fetchSavingsData() {
+    const { data } = await supabase
+      .from('savings')
+      .select('name, type, amount')
       .order('created_at', { ascending: false })
       .limit(10)
-    if (data) setFinances(data)
+    if (data) setSavingsData(data)
+  }
+
+  async function fetchLentData() {
+    const { data } = await supabase
+      .from('lent')
+      .select('person_name, amount, returned, return_date')
+      .eq('returned', false)
+      .limit(10)
+    if (data) setLentData(data)
   }
 
   async function fetchMessages() {
@@ -111,7 +132,7 @@ export default function Home() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages, tasks, journal, finances })
+        body: JSON.stringify({ messages: newMessages, tasks, journal, finances, savingsData, lentData })
       })
       const data = await res.json()
       setMessages(prev => [...prev, {
