@@ -23,6 +23,7 @@ export default function FinanceView() {
   const [amount, setAmount] = useState('')
   const [category, setCategory] = useState('Food')
   const [description, setDescription] = useState('')
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [saving, setSaving] = useState(false)
 
   useEffect(() => { fetchTransactions() }, [])
@@ -43,10 +44,11 @@ export default function FinanceView() {
       amount: Number(amount),
       category: type === 'income' ? 'Salary' : category,
       description,
-      date: new Date().toISOString().split('T')[0]
+      date: date
     }])
     setAmount('')
     setDescription('')
+    setDate(new Date().toISOString().split('T')[0])
     await fetchTransactions()
     setSaving(false)
     setMode('dashboard')
@@ -155,6 +157,18 @@ export default function FinanceView() {
               </div>
             </div>
           )}
+
+          <div>
+            <p className="text-xs text-zinc-600 mb-2 uppercase tracking-wider">
+              Date
+            </p>
+            <input
+              className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors text-white"
+              type="date"
+              value={date}
+              onChange={e => setDate(e.target.value)}
+            />
+          </div>
 
           <div>
             <p className="text-xs text-zinc-600 mb-2 uppercase tracking-wider">
