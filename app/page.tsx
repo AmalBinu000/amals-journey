@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import JournalView from '@/app/components/JournalView'
 import FinanceView from './components/FinanceView'
 
-type Message = { role: 'user' | 'assistant', content: string }
+type Message = { role: 'user' | 'assistant', content: string, imageUrl?: string }
 type Task = { id: number, text: string, completed: boolean }
 
 export default function Home() {
@@ -19,6 +19,8 @@ export default function Home() {
   const [lentData, setLentData] = useState<{ person_name: string, amount: number, returned: boolean, return_date: string | null }[]>([])
   const [newTask, setNewTask] = useState('')
   const [view, setView] = useState<'dashboard' | 'journal' | 'finance'>('dashboard')
+  const [chatImage, setChatImage] = useState<File | null>(null)
+  const [chatImagePreview, setChatImagePreview] = useState<string>('')
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -117,10 +119,11 @@ export default function Home() {
   }
 
   async function sendMessage() {
-    if (!input.trim() || loading) return
+    if (loading) return
+    if (!input.trim() && !chatImage) return
     const newMessages: Message[] = [
       ...messages,
-      { role: 'user', content: input }
+      { role: 'user', content: input, imageUrl: chatImagePreview || undefined }
     ]
     setMessages(newMessages)
     setInput('')
@@ -129,10 +132,31 @@ export default function Home() {
       role: 'user', content: input
     }])
     try {
+      let imageBase64 = ''
+      let imageType = ''
+
+      if (chatImage) {
+        imageBase64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader()
+          reader.onload = () => {
+            const result = reader.result as string
+            resolve(result.split(',')[1])
+          }
+          reader.readAsDataURL(chatImage)
+        })
+        imageType = chatImage.type
+        setChatImage(null)
+        setChatImagePreview('')
+      }
+
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages, tasks, journal, finances, savingsData, lentData })
+        body: JSON.stringify({
+          messages: newMessages, tasks, journal,
+          finances, savingsData, lentData,
+          imageBase64, imageType
+        })
       })
       const data = await res.json()
       setMessages(prev => [...prev, {
@@ -157,7 +181,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-zinc-950 text-white flex flex-col">
-      <div className="border-b border-zinc-800 px-6 py-4 flex items-center gap-3">
+      <div className="border-b border-zinc-800 px-6 py-4 flex items-center gap-3 sticky top-0 z-50 bg-zinc-950">
         <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
         <h1 className="text-lg font-semibold tracking-wide">Amal's Journey</h1>
         <div className="flex gap-2 ml-auto">
@@ -277,6 +301,9 @@ export default function Home() {
                     ? 'bg-blue-600 text-white rounded-tr-sm'
                     : 'bg-zinc-800 text-zinc-100 rounded-tl-sm'
                     }`}>
+                    {m.imageUrl && (
+                      <img src={m.imageUrl} alt="" className="rounded-lg mb-2 max-w-xs max-h-48 object-cover" />
+                    )}
                     <ReactMarkdown>{m.content}</ReactMarkdown>
                   </div>
                 </div>
@@ -296,21 +323,65 @@ export default function Home() {
               <div ref={bottomRef} />
             </div>
 
-            <div className="border-t border-zinc-800 px-6 py-4 flex gap-3">
-              <input
-                className="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors placeholder-zinc-600"
-                placeholder="Message Jarvis..."
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-              />
-              <button
-                onClick={sendMessage}
-                disabled={loading}
-                className="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 px-5 py-3 rounded-xl text-sm font-medium transition-colors"
-              >
-                Send
-              </button>
+            <div className="border-t border-zinc-800 px-6 py-4">
+              <div className="max-w-4xl mx-auto">
+                <div className="bg-zinc-900 border border-zinc-700 rounded-2xl focus-within:border-blue-500 transition-colors">
+                  <textarea
+                    className="w-full bg-transparent px-4 pt-4 pb-2 text-sm outline-none placeholder-zinc-600 text-white resize-none min-h-[56px] max-h-[200px]"
+                    placeholder="Message Jarvis..."
+                    value={input}
+                    rows={1}
+                    onChange={e => {
+                      setInput(e.target.value)
+                      e.target.style.height = 'auto'
+                      e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px'
+                    }}
+                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+                  />
+                  <div className="flex items-center justify-between px-4 pb-3">
+                    <div className="flex items-center gap-3">
+                      <label className="cursor-pointer text-zinc-600 hover:text-zinc-300 transition-colors">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={e => {
+                            const file = e.target.files?.[0]
+                            if (file) {
+                              setChatImage(file)
+                              setChatImagePreview(URL.createObjectURL(file))
+                            }
+                          }}
+                        />
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" />
+                          <polyline points="21 15 16 10 5 21" />
+                        </svg>
+                      </label>
+                      {chatImagePreview && (
+                        <div className="relative">
+                          <img src={chatImagePreview} alt="" className="h-8 w-8 rounded-lg object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => { setChatImage(null); setChatImagePreview('') }}
+                            className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-white text-xs flex items-center justify-center"
+                          >✕</button>
+                        </div>
+                      )}
+                      {!chatImagePreview && (
+                        <p className="text-xs text-zinc-700">Enter to send · Shift+Enter for new line</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={sendMessage}
+                      disabled={loading || (!input.trim() && !chatImage)}
+                      className="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded-xl text-xs font-medium transition-colors"
+                    >
+                      Send
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

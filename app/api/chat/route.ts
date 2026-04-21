@@ -5,7 +5,7 @@ const client = new Anthropic();
 
 export async function POST(request: NextRequest) {
     try {
-        const { messages, tasks, journal, finances, savingsData, lentData } = await request.json();
+        const { messages, tasks, journal, finances, savingsData, lentData, imageBase64, imageType } = await request.json();
         console.log('FINANCES SENT TO JARVIS:', JSON.stringify(finances, null, 2))
 
         const response = await client.messages.create({
@@ -87,7 +87,25 @@ ${lentData && lentData.length > 0
                         `- ${l.person_name}: ₹${l.amount}${l.return_date ? ` (return by ${l.return_date})` : ''}`).join('\n')
                     : 'No outstanding lent money.'
                 }`,
-            messages: messages,
+            messages: messages.map((m: { role: string, content: string }, index: number) => {
+                if (index === messages.length - 1 && imageBase64) {
+                    return {
+                        role: m.role,
+                        content: [
+                            {
+                                type: 'image',
+                                source: {
+                                    type: 'base64',
+                                    media_type: imageType,
+                                    data: imageBase64
+                                }
+                            },
+                            { type: 'text', text: m.content || 'What do you see in this image?' }
+                        ]
+                    }
+                }
+                return { role: m.role, content: m.content }
+            }),
 
         });
 
