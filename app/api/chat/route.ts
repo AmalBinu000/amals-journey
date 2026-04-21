@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
 
         const response = await client.messages.create({
             model: "claude-sonnet-4-5",
-            max_tokens: 1024,
+            max_tokens: 2048,
             system: `You are Jarvis, the personal AI assistant living inside 
 Amal's Journey — a self development app built by and 
 for Amal Binu, a frontend developer from Kerala, India.

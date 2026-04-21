@@ -21,6 +21,8 @@ export default function Home() {
   const [view, setView] = useState<'dashboard' | 'journal' | 'finance'>('dashboard')
   const [chatImage, setChatImage] = useState<File | null>(null)
   const [chatImagePreview, setChatImagePreview] = useState<string>('')
+  const [isListening, setIsListening] = useState(false)
+  const [editingMessageIndex, setEditingMessageIndex] = useState<number | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -119,36 +121,49 @@ export default function Home() {
   }
 
   async function sendMessage() {
-    if (loading) return
-    if (!input.trim() && !chatImage) return
-    const newMessages: Message[] = [
-      ...messages,
-      { role: 'user', content: input, imageUrl: chatImagePreview || undefined }
-    ]
+    if (loading || (!input.trim() && !chatImage)) return
+
+    let newMessages: Message[]
+
+    if (editingMessageIndex !== null) {
+      newMessages = [
+        ...messages.slice(0, editingMessageIndex),
+        { role: 'user', content: input, imageUrl: chatImagePreview || undefined }
+      ]
+      setEditingMessageIndex(null)
+    } else {
+      newMessages = [
+        ...messages,
+        { role: 'user', content: input, imageUrl: chatImagePreview || undefined }
+      ]
+    }
+
     setMessages(newMessages)
     setInput('')
     setLoading(true)
+
+    let imageBase64 = ''
+    let imageType = ''
+
+    if (chatImage) {
+      imageBase64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader()
+        reader.onload = () => {
+          const result = reader.result as string
+          resolve(result.split(',')[1])
+        }
+        reader.readAsDataURL(chatImage)
+      })
+      imageType = chatImage.type
+      setChatImage(null)
+      setChatImagePreview('')
+    }
+
     await supabase.from('messages').insert([{
       role: 'user', content: input
     }])
+
     try {
-      let imageBase64 = ''
-      let imageType = ''
-
-      if (chatImage) {
-        imageBase64 = await new Promise<string>((resolve) => {
-          const reader = new FileReader()
-          reader.onload = () => {
-            const result = reader.result as string
-            resolve(result.split(',')[1])
-          }
-          reader.readAsDataURL(chatImage)
-        })
-        imageType = chatImage.type
-        setChatImage(null)
-        setChatImagePreview('')
-      }
-
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -171,13 +186,56 @@ export default function Home() {
         role: 'assistant',
         content: 'Connection lost. Stand by.'
       }])
-
     } finally {
       setLoading(false)
     }
   }
 
   const completedCount = tasks.filter(t => t.completed).length
+
+  function startVoice() {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      alert('Voice not supported in this browser. Use Chrome.')
+      return
+    }
+    const w = window as typeof window & {
+      webkitSpeechRecognition?: new () => {
+        lang: string
+        continuous: boolean
+        interimResults: boolean
+        onstart: (() => void) | null
+        onend: (() => void) | null
+        onresult: ((event: { results: { [key: number]: { [key: number]: { transcript: string } } } }) => void) | null
+        onerror: (() => void) | null
+        start: () => void
+      }
+      SpeechRecognition?: new () => {
+        lang: string
+        continuous: boolean
+        interimResults: boolean
+        onstart: (() => void) | null
+        onend: (() => void) | null
+        onresult: ((event: { results: { [key: number]: { [key: number]: { transcript: string } } } }) => void) | null
+        onerror: (() => void) | null
+        start: () => void
+      }
+    }
+    const SpeechRecognitionCtor = w.webkitSpeechRecognition ?? w.SpeechRecognition
+    if (!SpeechRecognitionCtor) return
+    const recognition = new SpeechRecognitionCtor()
+    recognition.lang = 'en-IN'
+    recognition.continuous = false
+    recognition.interimResults = false
+
+    recognition.onstart = () => setIsListening(true)
+    recognition.onend = () => setIsListening(false)
+    recognition.onresult = (event: { results: { [key: number]: { [key: number]: { transcript: string } } } }) => {
+      const transcript = event.results[0][0].transcript
+      setInput(prev => prev ? prev + ' ' + transcript : transcript)
+    }
+    recognition.onerror = () => setIsListening(false)
+    recognition.start()
+  }
 
   return (
     <main className="min-h-screen bg-zinc-950 text-white flex flex-col">
@@ -292,11 +350,26 @@ export default function Home() {
                 </div>
               )}
               {messages.map((m, i) => (
-                <div key={i} className={`flex flex-col gap-1 max-w-2xl ${m.role === 'user' ? 'self-end items-end' : 'self-start items-start'
+                <div key={i} className={`flex flex-col gap-1 max-w-2xl group ${m.role === 'user' ? 'self-end items-end' : 'self-start items-start'
                   }`}>
-                  <span className="text-xs text-zinc-600 px-1">
-                    {m.role === 'user' ? 'Amal' : 'Jarvis'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-zinc-600 px-1">
+                      {m.role === 'user' ? 'Amal' : 'Jarvis'}
+                    </span>
+                    {m.role === 'user' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setInput(m.content)
+                          setEditingMessageIndex(i)
+                          document.querySelector('textarea')?.focus()
+                        }}
+                        className="text-xs text-zinc-700 hover:text-blue-400 transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        Edit
+                      </button>
+                    )}
+                  </div>
                   <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${m.role === 'user'
                     ? 'bg-blue-600 text-white rounded-tr-sm'
                     : 'bg-zinc-800 text-zinc-100 rounded-tl-sm'
@@ -325,10 +398,22 @@ export default function Home() {
 
             <div className="border-t border-zinc-800 px-6 py-4">
               <div className="max-w-4xl mx-auto">
+                {editingMessageIndex !== null && (
+                  <div className="flex items-center justify-between mb-2 px-1">
+                    <p className="text-xs text-blue-400">Editing message — Jarvis will regenerate from this point</p>
+                    <button
+                      type="button"
+                      onClick={() => { setEditingMessageIndex(null); setInput('') }}
+                      className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
                 <div className="bg-zinc-900 border border-zinc-700 rounded-2xl focus-within:border-blue-500 transition-colors">
                   <textarea
                     className="w-full bg-transparent px-4 pt-4 pb-2 text-sm outline-none placeholder-zinc-600 text-white resize-none min-h-[56px] max-h-[200px]"
-                    placeholder="Message Jarvis..."
+                    placeholder={editingMessageIndex !== null ? 'Edit your message...' : 'Message Jarvis...'}
                     value={input}
                     rows={1}
                     onChange={e => {
@@ -358,6 +443,21 @@ export default function Home() {
                           <polyline points="21 15 16 10 5 21" />
                         </svg>
                       </label>
+                      <button
+                        type="button"
+                        onClick={startVoice}
+                        className={`transition-colors ${isListening
+                          ? 'text-red-400 animate-pulse'
+                          : 'text-zinc-600 hover:text-zinc-300'
+                          }`}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                          <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                          <line x1="12" y1="19" x2="12" y2="23" />
+                          <line x1="8" y1="23" x2="16" y2="23" />
+                        </svg>
+                      </button>
                       {chatImagePreview && (
                         <div className="relative">
                           <img src={chatImagePreview} alt="" className="h-8 w-8 rounded-lg object-cover" />
