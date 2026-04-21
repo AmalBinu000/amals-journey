@@ -167,8 +167,8 @@ export default function JournalView() {
                     <button
                         onClick={() => setTab('dev')}
                         className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${tab === 'dev'
-                                ? 'bg-white text-black'
-                                : 'text-zinc-500 hover:text-zinc-200'
+                            ? 'bg-white text-black'
+                            : 'text-zinc-500 hover:text-zinc-200'
                             }`}
                     >
                         Dev Log
@@ -176,8 +176,8 @@ export default function JournalView() {
                     <button
                         onClick={() => setTab('body')}
                         className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${tab === 'body'
-                                ? 'bg-white text-black'
-                                : 'text-zinc-500 hover:text-zinc-200'
+                            ? 'bg-white text-black'
+                            : 'text-zinc-500 hover:text-zinc-200'
                             }`}
                     >
                         Body Log
